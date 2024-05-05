@@ -1,37 +1,42 @@
 """
 A module of utility functions.
 """
+
 import torch
 import math
 import numpy as np
+
 
 def normal_logpdf(x, mu, sigmasq):
     """
     Evaluate log-density function of a normal distribution.
 
     Parameters
-    ----------   
+    ----------
     x : evaluation states (of size d or N x d)
 
     mu : mean vector (of size 1 x d or N x d)
 
-    sigmasq : scalar variance 
-                        
+    sigmasq : scalar variance
+
     Returns
-    -------    
+    -------
     logdensity : log-density values(N, 1)
     """
-    
+
     d = mu.shape[1]
-    constants = - 0.5 * d * torch.log(torch.tensor(2 * math.pi, device = x.device)) - 0.5 * d * torch.log(sigmasq)
-    logdensity = torch.squeeze(constants - 0.5 * torch.sum((x - mu)**2, 1) / sigmasq)
-    
+    constants = -0.5 * d * torch.log(
+        torch.tensor(2 * math.pi, device=x.device)
+    ) - 0.5 * d * torch.log(sigmasq)
+    logdensity = torch.squeeze(constants - 0.5 * torch.sum((x - mu) ** 2, 1) / sigmasq)
+
     return logdensity
 
+
 def inverse_cdf(su, W):
-    """Inverse CDF algorithm for a finite distribution. 
+    """Inverse CDF algorithm for a finite distribution.
     (From particles package of Nicolas Chopin)
-        
+
     Parameters
     ----------
     su: (M,) ndarray
@@ -56,9 +61,9 @@ def inverse_cdf(su, W):
 
 
 def uniform_spacings(N):
-    """ Generate ordered uniform variates in O(N) time.
+    """Generate ordered uniform variates in O(N) time.
     (From particles package of Nicolas Chopin)
-    
+
     Parameters
     ----------
     N: int (>0)
@@ -81,22 +86,21 @@ def uniform_spacings(N):
 
 def resampling(W, M):
     """
-    Multinomial resampling scheme. 
+    Multinomial resampling scheme.
     (From particles package of Nicolas Chopin)
-    
+
     Parameters
-    ----------    
+    ----------
     W: (N,) ndarray
         a vector of N normalized weights (>=0 and sum to one)
-    
+
     M: int
         number of ancestor indexes to be sampled
-    
+
     Returns
     -------
     A: (N,) ndarray
         a vector of N indices in range 0, ..., N-1
-    """  
-    
-    return torch.from_numpy(inverse_cdf(uniform_spacings(M), W))
+    """
 
+    return torch.from_numpy(inverse_cdf(uniform_spacings(M), W))
