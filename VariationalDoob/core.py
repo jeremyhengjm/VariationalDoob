@@ -151,7 +151,7 @@ class model(torch.nn.Module):
         # evaluate R network
         R = self.R_net(Y)  # should be (N, d_r, T)?
         if R.size(0) == 1:
-            R = R.repeat(X.size(0), 1, 1)  # check if we need this?
+            R = R.repeat(N, 1, 1)  # check if we need this?
 
         # initialize
         X = self.x0.repeat(N, 1)
@@ -165,7 +165,7 @@ class model(torch.nn.Module):
             X, V = self.simulate_controlled_SDEs(
                 R[
                     :,
-                    t_rev,  # please check!
+                    t_rev,
                     :,
                 ],
                 X,
@@ -180,7 +180,7 @@ class model(torch.nn.Module):
                 )
             else:
                 # evaluate V neural network
-                V_eval = self.V_net(R[:, t_rev - 1, :], X)  # please check!
+                V_eval = self.V_net(R[:, t_rev - 1, :], X)
                 loss_term[t] = torch.mean(
                     torch.square(V + self.obs_log_density(X, Y[t, :]) - V_eval)
                 )

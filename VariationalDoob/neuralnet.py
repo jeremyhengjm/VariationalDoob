@@ -4,8 +4,8 @@ A module to approximate functions with neural networks.
 
 import torch
 import torch.nn.functional as F
-from models.s4.s4 import S4Block as S4
-from models.s4.s4d import S4D
+from s4.models.s4.s4 import S4Block as S4
+from s4.models.s4.s4d import S4D
 
 if tuple(map(int, torch.__version__.split(".")[:2])) == (1, 11):
     print("WARNING: Dropout is bugged in PyTorch 1.11. Results may be worse.")
