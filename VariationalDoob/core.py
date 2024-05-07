@@ -97,6 +97,7 @@ class model(torch.nn.Module):
         N = initial_states.shape[0]
         X = initial_states  # size (N, d)
         V = initial_values  # size (N)
+        R = R_values  # size (N, d_r)
         M = self.M
         d = self.d
 
@@ -111,7 +112,7 @@ class model(torch.nn.Module):
             )  # size (N, d)
 
             # simulate V process forwards in time
-            Z = self.Z_net(R_values, s, X)
+            Z = self.Z_net(R, s, X)
             control = -Z.clone().detach() * control_required
             drift_V = 0.5 * torch.sum(torch.square(Z), 1) + torch.sum(
                 control * Z, 1
@@ -363,7 +364,7 @@ class model(torch.nn.Module):
         with torch.no_grad():
             R = self.R_net(Y)
             if R.size(0) == 1:
-                R = R.repeat(X.size(0), 1, 1)
+                R = R.repeat(N, 1, 1)
 
         # simulate X process
         for t in range(T):
