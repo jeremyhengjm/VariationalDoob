@@ -71,7 +71,7 @@ class model(torch.nn.Module):
         self.device = device
 
     def simulate_controlled_SDEs(
-        self, R_values, initial_states, initial_values, control_required=True
+        self, theta, R_values, initial_states, initial_values, control_required=True
     ):
         """
         Simulate controlled diffusion processes X and V for unit time using Euler-Maruyama discretization.
@@ -121,13 +121,13 @@ class model(torch.nn.Module):
             V = euler_V + torch.sum(Z * W, 1)  # size (N)
 
             # simulate X process forwards in time
-            drift_X = self.b(X) + self.sigma * control
+            drift_X = self.b(theta, X) + self.sigma * control
             euler_X = X + stepsize * drift_X
             X = euler_X + self.sigma * W
 
         return X, V
 
-    def loss_function(self, iteration, initial_required, minibatch):
+    def loss_function(self, theta, iteration, initial_required, minibatch):
         """
         Compute loss function at each training iteration.
 
@@ -164,6 +164,7 @@ class model(torch.nn.Module):
             # simulate X and V processes for unit time
             t_rev = T - t - 1
             X, V = self.simulate_controlled_SDEs(
+                theta,
                 R[
                     :,
                     t_rev,
@@ -177,13 +178,13 @@ class model(torch.nn.Module):
             # compute loss
             if t == (T - 1):
                 loss_term[t] = torch.mean(
-                    torch.square(V + self.obs_log_density(X, Y[t, :]))
+                    torch.square(V + self.obs_log_density(theta, X, Y[t, :]))
                 )
             else:
                 # evaluate V neural network
                 V_eval = self.V_net(R[:, t_rev - 1, :], X)
                 loss_term[t] = torch.mean(
-                    torch.square(V + self.obs_log_density(X, Y[t, :]) - V_eval)
+                    torch.square(V + self.obs_log_density(theta, X, Y[t, :]) - V_eval)
                 )
 
             # update initial values
@@ -193,7 +194,7 @@ class model(torch.nn.Module):
 
         return loss
 
-    def train(self, optim_config):
+    def train(self, theta, optim_config):
         """
         Train approximations iteratively.
 
@@ -221,7 +222,7 @@ class model(torch.nn.Module):
 
         for i in tqdm(range(num_iterations)):
             # run forward pass and compute loss
-            loss = self.loss_function(i, initial_required, minibatch)
+            loss = self.loss_function(theta, i, initial_required, minibatch)
 
             # backpropagation
             loss.backward()
@@ -236,7 +237,9 @@ class model(torch.nn.Module):
             if (i == 0) or ((i + 1) % 100 == 0):
                 print("Optimization iteration:", i + 1, "Loss:", current_loss)
 
-    def simulate_uncontrolled_SMC(self, num_samples, resample=False, full_path=False):
+    def simulate_uncontrolled_SMC(
+        self, theta, num_samples, resample=False, full_path=False
+    ):
         """
         Simulate uncontrolled sequential Monte Carlo.
 
@@ -288,14 +291,14 @@ class model(torch.nn.Module):
                 )  # size (N, d)
 
                 # simulate X process forwards in time
-                euler_X = X + stepsize * self.b(X)
+                euler_X = X + stepsize * self.b(theta, X)
                 X = euler_X + self.sigma * W
                 if full_path:
                     index = t * M + m + 1
                     states[:, index, :] = X
 
             # compute and normalize weights, compute ESS and normalizing constant
-            log_weights = self.obs_log_density(X, Y[t, :])
+            log_weights = self.obs_log_density(theta, X, Y[t, :])
             max_log_weights = torch.max(log_weights)
             weights = torch.exp(log_weights - max_log_weights)
             normalized_weights = weights / torch.sum(weights)
@@ -322,7 +325,9 @@ class model(torch.nn.Module):
 
         return states, ess, log_norm_const, log_ratio_norm_const
 
-    def simulate_controlled_SMC(self, num_samples, resample=False, full_path=False):
+    def simulate_controlled_SMC(
+        self, theta, num_samples, resample=False, full_path=False
+    ):
         """
         Simulate controlled sequential Monte Carlo.
 
@@ -389,7 +394,7 @@ class model(torch.nn.Module):
                 V = euler_V + torch.sum(Z * W, 1)  # size (N)
 
                 # simulate X process forwards in time
-                drift_X = self.b(X) + self.sigma * control
+                drift_X = self.b(theta, X) + self.sigma * control
                 euler_X = X + stepsize * drift_X
                 X = euler_X + self.sigma * W
                 if full_path:
@@ -398,12 +403,12 @@ class model(torch.nn.Module):
 
             # compute log-weights
             if t == (T - 1):
-                log_weights = V + self.obs_log_density(X, Y[t, :])
+                log_weights = V + self.obs_log_density(theta, X, Y[t, :])
             else:
                 # evaluate V neural network
                 with torch.no_grad():
                     V_eval = self.V_net(R[:, t_rev - 1, :], X)
-                log_weights = V + self.obs_log_density(X, Y[t, :]) - V_eval
+                log_weights = V + self.obs_log_density(theta, X, Y[t, :]) - V_eval
 
             # normalize weights, compute ESS and normalizing constant
             max_log_weights = torch.max(log_weights)
